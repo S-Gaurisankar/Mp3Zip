@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mp3Zip - Studio Audio Extractor</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <link rel="stylesheet" href="style.css" />
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Plus Jakarta Sans', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+            },
+            dark: {
+              bg: '#090b10',
+              card: '#11141e',
+              border: '#1f2438',
+              hover: '#181d2e',
+            }
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-dark-bg text-slate-100 font-sans min-h-screen flex flex-col antialiased selection:bg-brand-500 selection:text-white">
+
+  <!-- Header Bar -->
+  <header class="border-b border-dark-border bg-dark-card/80 backdrop-blur-md sticky top-0 z-40 px-6 py-4">
+    <div class="max-w-7xl mx-auto flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-indigo-400 flex items-center justify-center shadow-lg shadow-brand-500/20 text-white text-lg font-bold">
+          <i class="fa-solid fa-compact-disc animate-spin-slow"></i>
+        </div>
+        <div>
+          <div class="flex items-center space-x-2">
+            <h1 class="text-xl font-extrabold tracking-tight bg-gradient-to-r from-white via-slate-200 to-indigo-300 bg-clip-text text-transparent">
+              Mp3Zip Music Engine
+            </h1>
+            <span class="px-2 py-0.5 text-xs font-semibold uppercase tracking-wider rounded-md bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+              MP3 VBR V0
+            </span>
+          </div>
+          <p class="text-xs text-slate-400">Decoupled Studio Audio Stream Resolution & ID3 Transcoder</p>
+        </div>
+      </div>
+
+      <!-- Header Right Controls -->
+      <div class="flex items-center space-x-4">
+        <!-- System Health Pill -->
+        <div id="system-status-pill" class="hidden sm:flex items-center space-x-2 px-3 py-1.5 rounded-full bg-slate-800/80 border border-slate-700/60 text-xs font-medium text-slate-300 cursor-pointer hover:border-slate-600 transition" onclick="switchTab('settings')">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" id="status-dot"></span>
+          <span id="status-text">FFmpeg Engine Ready</span>
+        </div>
+
+        <!-- WebSocket Status -->
+        <div id="ws-badge" class="flex items-center space-x-1.5 px-2.5 py-1 rounded-md text-xs font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+          <i class="fa-solid fa-wifi text-[10px]"></i>
+          <span id="ws-text">Live</span>
+        </div>
+
+        <!-- Open Output Folder Button -->
+        <button id="open-folder-header-btn" onclick="openOutputFolder()" class="flex items-center space-x-2 px-3.5 py-1.5 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 text-xs font-semibold transition">
+          <i class="fa-regular fa-folder-open"></i>
+          <span>Open Library</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Navigation Tabs -->
+  <div class="border-b border-dark-border bg-dark-card/40 px-6">
+    <div class="max-w-7xl mx-auto flex space-x-2">
+      <button onclick="switchTab('queue')" id="tab-btn-queue" class="tab-btn active px-4 py-3 text-sm font-semibold border-b-2 border-brand-500 text-brand-400 flex items-center space-x-2">
+        <i class="fa-solid fa-layer-group"></i>
+        <span>Extraction Queue</span>
+        <span id="queue-badge-count" class="px-2 py-0.5 text-xs rounded-full bg-dark-border text-slate-300 font-mono">0</span>
+      </button>
+      <button onclick="switchTab('library')" id="tab-btn-library" class="tab-btn px-4 py-3 text-sm font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center space-x-2">
+        <i class="fa-solid fa-music"></i>
+        <span>Music Library</span>
+        <span id="library-badge-count" class="px-2 py-0.5 text-xs rounded-full bg-dark-border text-slate-300 font-mono">0</span>
+      </button>
+      <button onclick="switchTab('settings')" id="tab-btn-settings" class="tab-btn px-4 py-3 text-sm font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center space-x-2">
+        <i class="fa-solid fa-sliders"></i>
+        <span>Settings & System</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Main Container -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-6 space-y-6">
+
+    <!-- TAB 1: EXTRACTION QUEUE -->
+    <section id="tab-queue" class="space-y-6">
+      
+      <!-- Multi-line Ingestion Card (Full Width) -->
+      <div class="bg-dark-card border border-dark-border rounded-2xl p-6 shadow-xl space-y-4">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div class="flex items-center space-x-2">
+            <i class="fa-solid fa-list-check text-brand-500"></i>
+            <h2 class="text-base font-bold text-white">Ingest Track List</h2>
+          </div>
+          <div class="flex flex-wrap items-center gap-1.5 text-xs text-slate-400">
+            <span>Supports:</span>
+            <span class="px-2 py-0.5 bg-slate-800 rounded font-mono text-[11px] text-emerald-300">Spotify Playlists / Albums</span>
+            <span class="px-2 py-0.5 bg-slate-800 rounded font-mono text-[11px]">Artist - Title</span>
+            <span class="px-2 py-0.5 bg-slate-800 rounded font-mono text-[11px]">CSV</span>
+            <span class="px-2 py-0.5 bg-slate-800 rounded font-mono text-[11px]">Direct URLs</span>
+          </div>
+        </div>
+
+        <!-- Textarea -->
+        <div class="relative">
+          <textarea
+            id="raw-tracks-input"
+            rows="5"
+            placeholder="Paste raw track list or Spotify/YouTube links (one per line):&#10;https://open.spotify.com/playlist/5XPxtJ61Rfp9NFT0vzEgb5&#10;The Weeknd - All I Know&#10;Daft Punk - Get Lucky&#10;Pink Floyd - Time (The Dark Side of the Moon)&#10;Miles Davis - So What"
+            class="w-full bg-dark-bg border border-dark-border rounded-xl px-4 py-3.5 text-sm font-mono text-slate-100 placeholder-slate-500 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition resize-y"
+          ></textarea>
+        </div>
+
+        <!-- Drag and Drop or Browse File -->
+        <div id="drop-zone" class="border-2 border-dashed border-dark-border hover:border-brand-500/50 rounded-xl p-3.5 text-center cursor-pointer transition bg-dark-bg/40">
+          <input type="file" id="file-upload-input" accept=".txt,.csv" class="hidden" />
+          <div class="flex items-center justify-center space-x-3 text-xs text-slate-400">
+            <i class="fa-solid fa-cloud-arrow-up text-brand-400 text-base"></i>
+            <span>Drop a <strong class="text-slate-200">.txt</strong> or <strong class="text-slate-200">.csv</strong> file here, or <span class="text-brand-400 underline font-semibold">browse</span></span>
+          </div>
+        </div>
+
+        <!-- Actions Bar with Quick Organize Toggle -->
+        <div class="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-dark-border">
+          <div class="flex items-center space-x-4">
+            <span id="line-count-preview" class="font-mono text-xs text-slate-400">0 tracks detected</span>
+            <label class="flex items-center space-x-2 text-xs text-slate-300 cursor-pointer select-none bg-dark-bg px-3 py-1.5 rounded-lg border border-dark-border">
+              <input type="checkbox" id="quick-toggle-organize" checked class="accent-brand-500 rounded cursor-pointer" onchange="toggleQuickOrganize(this.checked)" />
+              <span>Organize into Artist Folders</span>
+            </label>
+          </div>
+          <div class="flex items-center space-x-3">
+            <button onclick="clearInput()" class="px-3.5 py-2 rounded-xl text-xs font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition">
+              Clear
+            </button>
+            <button onclick="submitQueue()" id="submit-queue-btn" class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-brand-600 to-indigo-500 hover:from-brand-500 hover:to-indigo-400 text-white font-bold text-xs shadow-lg shadow-brand-500/25 flex items-center space-x-2 transition transform active:scale-95">
+              <i class="fa-solid fa-bolt"></i>
+              <span>Extract MP3s</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Real-Time Queue State Machine Section -->
+      <div class="bg-dark-card border border-dark-border rounded-2xl shadow-xl overflow-hidden">
+        
+        <!-- Queue Header & Filter Controls -->
+        <div class="p-5 border-b border-dark-border flex flex-wrap items-center justify-between gap-4 bg-dark-card/90">
+          <div class="flex items-center space-x-3">
+            <h2 class="text-base font-bold text-white flex items-center space-x-2">
+              <i class="fa-solid fa-bars-progress text-brand-500"></i>
+              <span>Download Queue</span>
+            </h2>
+            <div id="queue-status-summary" class="flex items-center space-x-2 text-xs">
+              <span class="px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 font-mono"><strong id="stat-total">0</strong> Total</span>
+              <span class="px-2 py-0.5 rounded-md bg-brand-500/10 text-brand-300 font-mono"><strong id="stat-running">0</strong> Active</span>
+              <span class="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-300 font-mono"><strong id="stat-completed">0</strong> Done</span>
+              <span class="px-2 py-0.5 rounded-md bg-rose-500/10 text-rose-300 font-mono"><strong id="stat-failed">0</strong> Failed</span>
+            </div>
+          </div>
+
+          <div class="flex items-center space-x-2">
+            <button onclick="clearQueue(false)" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 transition">
+              <i class="fa-regular fa-trash-can mr-1"></i> Clear Finished
+            </button>
+            <button onclick="clearQueue(true)" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-rose-950/40 hover:bg-rose-900/50 text-rose-300 border border-rose-800/40 transition">
+              Clear All
+            </button>
+          </div>
+        </div>
+
+        <!-- Job List Items Container -->
+        <div id="job-list-container" class="divide-y divide-dark-border min-h-[220px]">
+          <!-- Dynamic Items Injected Here -->
+          <div id="empty-queue-placeholder" class="p-12 text-center text-slate-500 space-y-3">
+            <i class="fa-solid fa-layer-group text-4xl text-slate-600"></i>
+            <p class="text-sm font-medium">No active extraction jobs in the queue.</p>
+            <p class="text-xs text-slate-600">Paste track titles above or drop a .txt/.csv file to start automated studio extraction.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 2: COMPLETED LIBRARY & AUDIO PLAYER -->
+    <section id="tab-library" class="hidden space-y-6">
+      <div class="bg-dark-card border border-dark-border rounded-2xl p-5 shadow-xl space-y-4">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 class="text-base font-bold text-white flex items-center space-x-2">
+              <i class="fa-solid fa-folder-music text-emerald-400"></i>
+              <span>Music Library</span>
+            </h2>
+          </div>
+
+          <div class="flex items-center space-x-3">
+            <div class="relative">
+              <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-xs text-slate-500"></i>
+              <input
+                type="text"
+                id="library-search-input"
+                placeholder="Filter artist, title..."
+                class="bg-dark-bg border border-dark-border rounded-xl pl-8 pr-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-brand-500 font-mono w-48 sm:w-64"
+                oninput="filterLibrary()"
+              />
+            </div>
+            <button onclick="refreshLibrary()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition">
+              <i class="fa-solid fa-arrows-rotate"></i>
+            </button>
+            <button onclick="openOutputFolder()" class="px-3.5 py-1.5 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 text-xs font-semibold transition">
+              <i class="fa-regular fa-folder-open mr-1"></i> Open Folder
+            </button>
+          </div>
+        </div>
+
+        <!-- Library Track List -->
+        <div id="library-container" class="space-y-2 max-h-[520px] overflow-y-auto pr-1">
+          <!-- Dynamic Library Items -->
+          <div id="empty-library-placeholder" class="p-12 text-center text-slate-500 space-y-2">
+            <i class="fa-solid fa-music text-3xl text-slate-600"></i>
+            <p class="text-sm">No completed MP3 files found in output directory yet.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 3: SETTINGS & SYSTEM DIAGNOSTICS -->
+    <section id="tab-settings" class="hidden space-y-6">
+      
+      <!-- Top Grid: Specs Card + System Diagnostics -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- Extraction Specs & Presets Card (1 Col) -->
+        <div class="bg-dark-card border border-dark-border rounded-2xl p-5 shadow-xl flex flex-col justify-between space-y-4">
+          <div class="space-y-3">
+            <div class="flex items-center space-x-2 text-indigo-400 text-sm font-bold">
+              <i class="fa-solid fa-sliders"></i>
+              <span>Extraction Specifications</span>
+            </div>
+
+            <div class="space-y-2.5 text-xs">
+              <div class="flex justify-between items-center p-2.5 rounded-lg bg-dark-bg/60 border border-dark-border">
+                <span class="text-slate-400">Audio Codec:</span>
+                <span class="font-mono font-bold text-slate-200">FFmpeg libmp3lame</span>
+              </div>
+              <div class="flex justify-between items-center p-2.5 rounded-lg bg-dark-bg/60 border border-dark-border">
+                <span class="text-slate-400">Quality Preset:</span>
+                <span class="font-mono font-bold text-emerald-400">VBR V0 (~245 kbps)</span>
+              </div>
+              <div class="flex justify-between items-center p-2.5 rounded-lg bg-dark-bg/60 border border-dark-border">
+                <span class="text-slate-400">Sample Rate:</span>
+                <span class="font-mono font-bold text-slate-200">44,100 Hz</span>
+              </div>
+              <div class="flex justify-between items-center p-2.5 rounded-lg bg-dark-bg/60 border border-dark-border">
+                <span class="text-slate-400">Target Stream:</span>
+                <span class="font-mono font-bold text-indigo-300">YouTube Music Topic</span>
+              </div>
+              <div class="flex justify-between items-center p-2.5 rounded-lg bg-dark-bg/60 border border-dark-border">
+                <span class="text-slate-400">ID3 Tagging:</span>
+                <span class="font-mono font-bold text-emerald-400">ID3v2.3 + Cover Art</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="p-3 rounded-xl bg-indigo-950/30 border border-indigo-500/20 text-[11px] text-indigo-200 flex items-start space-x-2">
+            <i class="fa-solid fa-shield-halved text-indigo-400 mt-0.5"></i>
+            <span><strong>Zero Audio Padding:</strong> Encodes strictly from native Opus/AAC masters to LAME VBR V0 with jitter rate limiting.</span>
+          </div>
+        </div>
+
+        <!-- System Engine Diagnostics (1 Col) -->
+        <div class="bg-dark-card border border-dark-border rounded-2xl p-5 shadow-xl space-y-4">
+          <div class="flex items-center space-x-2 text-white font-bold text-base">
+            <i class="fa-solid fa-heart-pulse text-rose-400"></i>
+            <h2>System Dependencies</h2>
+          </div>
+
+          <div class="space-y-3" id="diagnostics-details-box">
+            <div class="p-3 bg-dark-bg rounded-xl border border-dark-border flex justify-between items-center text-xs">
+              <span class="text-slate-400">FFmpeg Binary:</span>
+              <span id="diag-ffmpeg" class="font-mono text-emerald-400">Checking...</span>
+            </div>
+            <div class="p-3 bg-dark-bg rounded-xl border border-dark-border flex justify-between items-center text-xs">
+              <span class="text-slate-400">FFprobe Binary:</span>
+              <span id="diag-ffprobe" class="font-mono text-emerald-400">Checking...</span>
+            </div>
+            <div class="p-3 bg-dark-bg rounded-xl border border-dark-border flex justify-between items-center text-xs">
+              <span class="text-slate-400">libmp3lame Encoder:</span>
+              <span id="diag-lame" class="font-mono text-emerald-400">Checking...</span>
+            </div>
+          </div>
+
+          <div id="troubleshooting-box" class="hidden p-3 rounded-xl bg-amber-950/30 border border-amber-500/20 text-xs text-amber-200 space-y-1">
+            <p class="font-bold flex items-center space-x-1"><i class="fa-solid fa-triangle-exclamation"></i> <span>Action Required:</span></p>
+            <p id="troubleshooting-text"></p>
+          </div>
+        </div>
+
+        <!-- Configuration Settings Form (1 Col) -->
+        <div class="bg-dark-card border border-dark-border rounded-2xl p-5 shadow-xl space-y-4">
+          <div class="flex items-center space-x-2 text-white font-bold text-base">
+            <i class="fa-solid fa-sliders text-brand-400"></i>
+            <h2>Pipeline Parameters</h2>
+          </div>
+
+          <div class="space-y-3 text-xs">
+            <div>
+              <label class="block text-slate-400 mb-1">Output Directory Path:</label>
+              <input type="text" id="setting-output-dir" class="w-full bg-dark-bg border border-dark-border rounded-xl px-3 py-2 text-slate-200 font-mono text-xs focus:outline-none focus:border-brand-500" />
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-slate-400 mb-1">Min Jitter (s):</label>
+                <input type="number" id="setting-min-jitter" step="0.5" class="w-full bg-dark-bg border border-dark-border rounded-xl px-3 py-2 text-slate-200 font-mono text-xs focus:outline-none focus:border-brand-500" />
+              </div>
+              <div>
+                <label class="block text-slate-400 mb-1">Max Jitter (s):</label>
+                <input type="number" id="setting-max-jitter" step="0.5" class="w-full bg-dark-bg border border-dark-border rounded-xl px-3 py-2 text-slate-200 font-mono text-xs focus:outline-none focus:border-brand-500" />
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-slate-400 mb-1">Concurrent Workers:</label>
+              <input type="number" id="setting-concurrency" min="1" max="4" class="w-full bg-dark-bg border border-dark-border rounded-xl px-3 py-2 text-slate-200 font-mono text-xs focus:outline-none focus:border-brand-500" />
+            </div>
+
+            <div>
+              <label class="flex items-center space-x-2 text-slate-300 cursor-pointer select-none pt-1">
+                <input type="checkbox" id="setting-organize-folders" class="accent-brand-500 rounded cursor-pointer" />
+                <span>Organize into &lt;Artist&gt;/ subfolders</span>
+              </label>
+            </div>
+
+            <div class="pt-1">
+              <button onclick="saveSettings()" class="w-full py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-bold text-xs transition">
+                Save & Apply Settings
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Sticky Bottom Audio Preview Player -->
+  <div id="audio-player-bar" class="hidden sticky bottom-0 z-50 border-t border-dark-border bg-dark-card/95 backdrop-blur-xl px-6 py-3.5 shadow-2xl">
+    <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+      
+      <!-- Player Track Info -->
+      <div class="flex items-center space-x-3 w-full md:w-1/4">
+        <div class="w-11 h-11 rounded-lg bg-dark-bg border border-dark-border flex items-center justify-center text-brand-400 overflow-hidden shadow-inner">
+          <i class="fa-solid fa-music" id="player-thumb-icon"></i>
+          <img id="player-thumb-img" class="w-full h-full object-cover hidden" alt="Cover" />
+        </div>
+        <div class="truncate">
+          <div id="player-track-title" class="text-xs font-bold text-white truncate">Track Title</div>
+          <div id="player-track-artist" class="text-[11px] text-slate-400 truncate">Artist</div>
+        </div>
+      </div>
+
+      <!-- Controls & Progress Bar -->
+      <div class="flex flex-col items-center w-full md:w-2/4 space-y-1.5">
+        <div class="flex items-center space-x-4">
+          <button onclick="seekAudio(-10)" class="text-slate-400 hover:text-white transition text-xs">
+            <i class="fa-solid fa-rotate-left"></i> 10s
+          </button>
+          <button onclick="togglePlayPause()" id="player-play-btn" class="w-9 h-9 rounded-full bg-brand-600 hover:bg-brand-500 text-white flex items-center justify-center text-sm shadow-lg shadow-brand-500/30 transition transform active:scale-95">
+            <i class="fa-solid fa-play ml-0.5" id="player-play-icon"></i>
+          </button>
+          <button onclick="seekAudio(10)" class="text-slate-400 hover:text-white transition text-xs">
+            10s <i class="fa-solid fa-rotate-right"></i>
+          </button>
+        </div>
+
+        <div class="flex items-center space-x-2 w-full text-[11px] font-mono text-slate-400">
+          <span id="player-current-time">0:00</span>
+          <div class="flex-1 relative cursor-pointer" onclick="handleSeekbarClick(event)">
+            <div class="w-full h-1.5 bg-dark-bg rounded-full overflow-hidden border border-dark-border">
+              <div id="player-progress-fill" class="h-full bg-gradient-to-r from-brand-500 to-indigo-400 w-0 transition-all"></div>
+            </div>
+          </div>
+          <span id="player-total-time">0:00</span>
+        </div>
+      </div>
+
+      <!-- Volume & Close Player -->
+      <div class="flex items-center justify-end space-x-3 w-full md:w-1/4">
+        <i class="fa-solid fa-volume-high text-xs text-slate-400"></i>
+        <input type="range" id="player-volume" min="0" max="1" step="0.05" value="0.9" oninput="setAudioVolume(this.value)" class="w-20 accent-brand-500 cursor-pointer" />
+        <button onclick="closeAudioPlayer()" class="text-slate-400 hover:text-slate-200 text-xs p-1 ml-2">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+    </div>
+    <audio id="global-audio-element" class="hidden"></audio>
+  </div>
+
+  <!-- Manual Search Query Override Modal -->
+  <div id="retry-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-dark-card border border-dark-border rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="text-base font-bold text-white flex items-center space-x-2">
+          <i class="fa-solid fa-arrows-rotate text-brand-400"></i>
+          <span>Retry with Custom Search Query</span>
+        </h3>
+        <button onclick="closeRetryModal()" class="text-slate-400 hover:text-white">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3 text-xs">
+        <p class="text-slate-400">If the automatic YouTube Music Topic resolution matched an incorrect audio track, you can specify an explicit search query or direct YouTube/YouTube Music URL below:</p>
+        
+        <input type="hidden" id="modal-job-id" />
+        
+        <div>
+          <label class="block text-slate-300 font-semibold mb-1">Search Query or Stream URL:</label>
+          <input
+            type="text"
+            id="modal-override-query"
+            placeholder="e.g. ytsearch1:Pink Floyd Time Remastered Official Audio"
+            class="w-full bg-dark-bg border border-dark-border rounded-xl px-3.5 py-2.5 text-slate-200 font-mono text-xs focus:outline-none focus:border-brand-500"
+          />
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end space-x-3 pt-2">
+        <button onclick="closeRetryModal()" class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition">
+          Cancel
+        </button>
+        <button onclick="submitRetryWithOverride()" class="px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold transition shadow-lg shadow-brand-500/20">
+          Re-enqueue Job
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delete Confirmation Modal -->
+  <div id="delete-modal" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-dark-card border border-dark-border rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in duration-200">
+      <div class="flex items-center space-x-3 text-rose-400">
+        <div class="w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-lg shrink-0">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+        </div>
+        <div>
+          <h3 class="text-base font-bold text-white">Delete Track</h3>
+          <p class="text-xs text-slate-400">This will permanently delete this audio file from disk.</p>
+        </div>
+      </div>
+
+      <div class="p-3 bg-dark-bg rounded-xl border border-dark-border text-xs space-y-1">
+        <div class="text-slate-200 font-bold text-sm" id="delete-modal-track-name">Track Name</div>
+        <div class="text-slate-400 font-mono text-[11px]" id="delete-modal-path">Path</div>
+      </div>
+
+      <input type="hidden" id="delete-modal-rel-path" />
+
+      <div class="flex items-center justify-end space-x-3 pt-2">
+        <button onclick="closeDeleteModal()" class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition">
+          Cancel
+        </button>
+        <button onclick="confirmDeleteTrack()" class="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition shadow-lg shadow-rose-600/25">
+          Delete Permanently
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="fixed top-5 right-5 z-50 space-y-2 pointer-events-none"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
